@@ -8,7 +8,7 @@
     "build": "tsc --project tsconfig.esm.json",
     "build-all": "npm run build && npm run build-commonjs",
     "build-commonjs": "tsc --project tsconfig.commonjs.json",
-    "build-parser": "jison gremlins.jison -o lib.esm/_parser.js",
+    "build-parser": "jison gremlins.jison -m js -o lib.esm/_parser.js && echo 'const parser = _parser; const parse = parser.parse.bind(parser); export { parser, parse };' >> lib.esm/_parser.js",
     "clean": "rm -rf dist lib.esm lib.commonjs && cp -r misc/basedirs/* .",
     "stats": "echo 'Dependencies' && npm ls --all --omit=dev",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -9,7 +9,7 @@
       "es2020",
       "es5"
     ],
-    "moduleResolution": "node16",
+    "moduleResolution": "node",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,
