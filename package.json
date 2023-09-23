@@ -4,10 +4,12 @@
   "description": "A simple and easy-to-use language for querying blockchain data.",
   "main": "./lib/index.js",
   "scripts": {
+    "_dist-stats": "gzip -k9f -S '.gz' ./dist/gremlins.min.js && gzip -k9f -S '.gz' ./dist/gremlins.js && du -hs ./dist/*.gz && echo '' && du -hs ./dist/*.js",
     "auto-build": "npm run build -- -w",
     "build": "tsc --project tsconfig.esm.json",
     "build-all": "npm run build && npm run build-commonjs",
     "build-commonjs": "tsc --project tsconfig.commonjs.json",
+    "build-dist": "npx rollup -c rollup.config.mjs && uglifyjs ./dist/gremlins.js -o ./dist/gremlins.min.js && npm run _dist-stats",
     "build-parser": "jison gremlins.jison -m js -o lib.esm/_parser.js && echo 'const parser = _parser; const parse = parser.parse.bind(parser); export { parser, parse };' >> lib.esm/_parser.js",
     "clean": "rm -rf dist lib.esm lib.commonjs && cp -r misc/basedirs/* .",
     "stats": "echo 'Dependencies' && npm ls --all --omit=dev",
@@ -30,8 +32,12 @@
   },
   "sideEffects": false,
   "homepage": "https://github.com/ricmoo/gremlins#readme",
-  "dependencies": {
+  "devDependencies": {
     "jison": "^0.4.18",
-    "typescript": "^5.2.2"
+    "rollup": "^3.29.2",
+    "typescript": "^5.2.2",
+    "uglify-js": "^3.17.4"
+  },
+  "dependencies": {
   }
 }
