@@ -3,21 +3,23 @@ Gremlins Language and Compiler
 
 Gremlins in a high-level language for blockchain development.
 
-**Like** Solidity, it compiles to EVM bytecode.
+**Like** Solidity: it compiles a high-level language to EVM bytecode.
 
-**Unlike** Solidity, it is not designed to write contracts in,
-but instead write arbitrary code which executes in an `eth_call`
-to synchronously access blockchain state, perform compuation
-and return JavaScript-friendly results.
+**Unlike** Solidity: it is **not** for writing contracts, but instead for
+querying on-chain data, synchronously with `eth_call`, with arbitrary logic
+to return JavaScript-friendly results.
+
+**TL;DR:** *Like a more nuanced multicall for read-only operations*
 
 
 Features
 --------
 
-- **Tiny**; under 25kb for parser, compiler and code generator
+- **Tiny**; under 8kb for parser, compiler and code generator (16kb uncompessed)
+- **Zero** dependencies
 - **Easy** to use, with a TypeScript-inspired syntax
 - **Aggregates** many operations together
-- Providers effectively **synchronous** access to blockchain data
+- Providers **synchronous** access to blockchain data
 - **Open Source**; 100% MIT licensed
 
 
@@ -60,10 +62,15 @@ function main(sender: address, addresses: Array<address>) {
 
 ```javascript
 const code = fs.readFileSync("MyAllowance.gizmo");
+
+// Who the allowance permissions are being requested for
+const sender = // who the allowances permit
+
+// The addresses to query
 const address = [
    // ...
 ];
-const allowances: Array<bigint> = gremlins.eval(code, addresses);
+const allowances: Array<bigint> = gremlins.eval(code, sender, addresses);
 ```
 
 License
