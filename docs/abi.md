@@ -24,24 +24,18 @@ a canonical value.
 Types
 -----
 
-`0b0000` - null
-
-`0b0001` - reserved
-
-`0b0010` - false
-`0b0011` - true
-
-`0b0100` - uint (links to 32 byte)
-`0b0101` - int (links to 32 bytes)
-
-`0b0110` - address (links to 20 bytes)
-`0b0111` - hash (links to 32 bytes)
-
-`0b1000` - bytes (links to 4 byte length + length bytes)
-`0b1001` - string (links to 4 byte length + length bytes)
-
-`0b1010` - array (see Arrays)
-`0b1011` - keyed object *(future)*
+- `0b0000` - null
+- `0b0001` - reserved
+- `0b0010` - false
+- `0b0011` - true
+- `0b0100` - uint (links to 32 byte)
+- `0b0101` - int (links to 32 bytes)
+- `0b0110` - address (links to 20 bytes)
+- `0b0111` - hash (links to 32 bytes)
+- `0b1000` - bytes (links to 4 byte length + length bytes)
+- `0b1001` - string (links to 4 byte length + length bytes)
+- `0b1010` - array (see Arrays)
+- `0b1011` - keyed object *(future)*
 
 
 Arrays
