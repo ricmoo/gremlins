@@ -1,5 +1,5 @@
 // [ OPCODE, inputs = 0, outputs = 0, effectDepth = inputs ];
-const ops = {
+const ops: Record<string, Array<number>> = {
     // STOP and Arithmentic Operations
     stop: [ 0 ],
     add: [ 1, 2, 1 ],
@@ -101,7 +101,7 @@ for (let i = 0; i < 5; i++) {
     ops[`log${ i + 1 }`] = [ 0xa0 + i, 2 + i, 0 ];
 }
 
-interface Op {
+interface _Op {
     mnemonic: string;
     opcode: number;
     inputs: number;
@@ -109,17 +109,10 @@ interface Op {
     effectDepth: number;
 }
 
-function getOp(mnemonic: string):  {
-    const info = ops[mnemonic];
-    if (info == null) { throw new Error(`unknown OPCODE mnemonic`); }
-/*
-    const pushSize = mnemonic.match(/^push[0-9]+$/);
+function getOp(mnemonic: string): _Op {
+    const info = ops[mnemonic.toLowerCase()];
+    if (info == null) { throw new Error(`unknown OPCODE mnemonic: ${ mnemonic }`); }
 
-    if (pushSize) {
-        const count = parseInt(pushSize);
-        i
-    }
-*/
     return {
         mnemonic,
         opcode: info[0],
@@ -135,10 +128,67 @@ function checkLabel(label: string): string {
     }
     return label;
 }
+console.log(getOp, checkLabel);
+
+export type Literal = number | string;
+export type Op = { op: string, operands: Array<Op | Literal>, depth?: number, name?: string };
+export type Label = { label: string };
+export type Comment = { comment: string };
+
+function isLiteral(value: any): value is Literal {
+    return (typeof(value) === "number" || typeof(value) === "string");
+}
+
+function isOp(value: any): value is Op {
+    return (typeof(value) === "object" && "op" in value);
+}
+
+function isLabel(value: any): value is Label {
+    return (typeof(value) === "object" && "label" in value);
+}
+
+function isComment(value: any): value is Comment {
+    return (typeof(value) === "object" && "comment" in value);
+}
+
+function countDelta(op: Op | Literal | Label | Comment): number {
+    if (isOp(op)) {
+        const info = getOp(op.op);
+        let depth = info.outputs - info.inputs;
+        for (const o of op.operands) {
+            depth += countDelta(o);
+        }
+        return depth;
+    } else if (typeof(op) === "number" || typeof(op) === "string") {
+        return 1;
+    }
+
+    return 0;
+}
+
+export function op(mnemonic: string, args: Array<Op | Literal>): Op {
+    const op = getOp(mnemonic);
+    if (op.inputs != args.length) {
+        throw new Error(`${ mnemonic } expects ${ op.inputs }; got ${ args } (${ args.length })`);
+    }
+    return { op: mnemonic, operands: args };
+}
 
 export class AsmBuilder {
+    #tree: Array<Op | Label | Comment>;
 
-    ops(): void {
+    #prefix: Array<string>;
+
+    #nid: number;
+
+    constructor() {
+        this.#tree = [ ];
+        this.#prefix = [ ];
+        this.#nid = 1;
+    }
+
+    #nextId(): string {
+        return `${ this.#nid++ }`;
     }
 
     get bytecode(): string {
@@ -146,6 +196,62 @@ export class AsmBuilder {
     }
 
     get code(): string {
-        return "";
+        let output: Array<string> = [ ];
+        const descend = (op: Op | Label | Comment) => {
+            if (isLabel(op)) {
+                output.push(op.label);
+            } else if (isComment(op)) {
+                output.push(`; ${ op.comment}`);
+            } else {
+                const expand = (op: Op | Literal): string => {
+                    if (isLiteral(op)) { return String(op); }
+                    return `${ op.op }(${ op.operands.map(o => expand(o)).join(",") })`;
+                };
+                output.push(expand(op));
+            }
+        };
+        for (const op of this.#tree) { descend(op); }
+        return output.join("\n");
+    }
+
+    ops(op: Op): null | string {
+        const depth =  countDelta(op);
+        if (depth === 0) {
+            this.#tree.push(op);
+            return null
+        }
+
+        const name = this.#label(this.#nextId());
+        this.#tree.push(Object.assign({ depth, name }, op));
+        return name;
+    }
+
+    block(prefix: string, builder: (asm: AsmBuilder) => void): void {
+        this.#prefix.push(prefix);
+        const asm = new AsmBuilder();
+        asm.#prefix = this.#prefix;
+        builder(asm);
+        asm.#tree.forEach((op) => this.#tree.push(op));
+        this.#prefix.pop();
+    }
+
+    #label(label: string): string {
+        return "$" + this.#prefix.join("_") + "_" + label;
+    }
+
+    label(label: string): void {
+        this.#tree.push({ label: this.#label(label) });
+    }
+
+    comment(comment: string): void {
+        this.#tree.push({ comment });
+    }
+
+    goto(label: string): void {
+        this.ops(op("JUMP", [ this.#label(label) ]));
+    }
+
+    dump() {
+        console.dir(this.#tree, { depth: null });
     }
 }
