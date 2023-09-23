@@ -48,7 +48,7 @@ function main(addresses: Array<address>) {
 }
 ```
 
-**Using 
+**Using:**
 
 ```javascript
 const code = fs.readFileSync("MyAllowance.gizmo");
