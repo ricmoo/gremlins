@@ -1,0 +1,141 @@
+import { parse } from "./parser.js";
+import { getAsm, getOp } from "./opcodes.js";
+
+
+const children: Record<string, Array<string>> = {
+    Program: [ "statements" ],
+    Return: [ "value" ],
+    BinaryExpr: [ "right", "left" ],
+};
+
+const OpMap: Record<string, string> = {
+    "+": "add"
+};
+
+function pad(_value: number, length?: number, c?: string): string {
+    if (length == null) { length = 2; }
+    if (c == null) { c = "0"; }
+    let value = _value.toString(16);
+    if (value.length < 2) { value = c + value; }
+    return value;
+}
+
+type Literal = string | number;
+type Op = { mnemonic: string, operands: Array<Literal | Op>, comment?: string };
+
+type Bytes = { bytes: string, comment?: string };
+type Label = { label: string };
+
+funciton op(mnemonic: string, operands: Array<Literal | Op>): Op {
+    // @TODO: check inputs
+    return { mnemonic, operands };
+}
+
+class Output {
+    readonly clumps: Array<Bytes | Op | Label>;
+
+    #nextId: number;
+
+    constructor() {
+        this.clumps = [ ];
+
+        // Set the Stack Pointer
+        this.ops(op("mstore", [ 0, 1120 ]));
+
+        //
+
+        this.#nextId = 1;
+    }
+
+    label(label: string): void {
+        this.bytes.push({ label }));
+    }
+
+    ops(op: Op): void {
+       this.bytes.push(op);
+    }
+
+    literal(value: number | string) {
+        if (typeof(value) === "number") {
+            let bytes = value.toString(16);
+            if (bytes.length % 2) { bytes = "0" + bytes; }
+            bytes = (0x60 + bytes.length / 2).toString(16) + bytes;
+            this.bytes.push({ bytes });
+        } else {
+            throw new Error(`not implemented: ${ value }`);
+        }
+    }
+
+    binaryOp(op: string): void {
+        //this.bytes.push(OpMap[op]);
+    }
+
+    dump(): void {
+        console.log(this);
+        console.log(this.bytes);
+    }
+}
+
+type VisitFunc = (output: Output, node: any, parent: any) => void;
+
+const visitor: Record<string, { enter?: VisitFunc, exit?: VisitFunc }> = {
+  BinaryExpr: {
+    enter: (node: any, parent: any) => {
+    },
+    exit: (output, node, parent) => {
+        output.binaryOp(node.op);
+    }
+  },
+  Literal: {
+    enter: (node: any, parent: any) => {
+    },
+    exit: (output, node, parent) => {
+       console.log("literal", node);
+       output.literal(node.value);
+    },
+  }
+};
+
+function getTag(name: string): string {
+    return name.split("-").map((n) => {
+        return n.substring(0, 1).toUpperCase() + n.substring(1).toLowerCase();
+    }).join("");
+}
+
+export function codegen(ast: any) {
+    const output = new Output();
+    const visit = (node: any, parent: any) => {
+        const tag = getTag(node.type);
+        const gen = visitor[tag];
+        if (gen && gen.enter) {
+            gen.enter(output, node, parent);
+        } else {
+            console.log(`Skipped: ${ tag }.enter`);
+        }
+        for (const childKey of (children[tag] || [ ])) {
+            const childs = (node[childKey] || [ ]);
+            if (Array.isArray(childs)) {
+                for (const child of childs) {
+                    visit(child, node);
+                }
+            } else {
+                visit(childs, node);
+            }
+        }
+        if (gen && gen.exit) {
+            gen.exit(output, node, parent);
+        } else {
+            console.log(`Skipped: ${ tag }.exit`);
+        }
+    };
+    visit(ast, null);
+
+    output.dump();
+}
+
+
+const ast = parse(`
+return 4 + 5;
+`);
+
+codegen(ast);

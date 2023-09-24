@@ -20,14 +20,29 @@ export interface ExpressionNode extends Node {
 }
 
 export interface IdExpressionNode extends ExpressionNode {
+    type: "id";
+    value: string;
+}
+
+export interface LiteralExpressionNode extends ExpressionNode {
+    type: "literal";
+    value: string | number | boolean;
 }
 
 export interface UnaryExpressionNode extends ExpressionNode {
+    type: "unary";
     op: string;
     expr: ExpressionNode;
 }
 
+export interface CastExpressionNode extends ExpressionNode {
+    type: "cast";
+    cast: string;
+    expr: ExpressionNode;
+}
+
 export interface BinaryExpressionNode extends ExpressionNode {
+    type: "binary-expr";
     left: ExpressionNode;
     op: string;
     right: ExpressionNode;
@@ -45,6 +60,6 @@ export interface ProgramNode {
     funcs: Array<FunctionNode>;
 }
 
-export function parse(code: string): Program {
+export function parse(code: string): ProgramNode {
     return _parse(code);
 }
