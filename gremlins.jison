@@ -4,9 +4,11 @@
 
 // Ignorables
 ([/][/][^\n]*\n)                               // Ignore comments
-([/][*].*[*][/])                               // Ignore comments
+([/][*](.|\n)*[*][/])                         // Ignore comments
 (\s+)                                          // Ignore Whitespace
 
+","                                            return "COMMA"
+":"                                            return "COLON"
 ";"                                            return "SEMI"
 
 // Literals
@@ -17,12 +19,11 @@
 "true"                                         return "BOOL"
 "false"                                        return "BOOL"
 
+"null"                                         return "NULL"
+
 // ("0x"[0-9a-f]+)                                return "BYTES"
 //(["]([^\]|[\].)+["])                           return "STRING"
 (["]([^\\]|\\.)*["])                           return "STRING"
-
-// Scope
-//("{" | "}")
 
 // Operators
 
@@ -62,13 +63,30 @@
 "const"             return "DECLARE"
 "let"               return "DECLARE"
 
-"if"              return "IF"
-"else"            return "ELSE"
+"function"          return "FUNCTION"
+"interface"         return "INTERFACE"
 
-"while"           return "WHILE"
+"if"                return "IF"
+"else"              return "ELSE"
 
-"try"             return "TRY"
-"catch"           return "CATCH"
+"while"             return "WHILE"
+
+"try"               return "TRY"
+"catch"             return "CATCH"
+
+"return"            return "RETURN"
+
+// Solidity-specific Types
+(("bytes"|"int"|"uint")[0-9]+)  return "TYPE_SOLC"
+
+// Types
+"address"          return "ADDRESS"
+"boolean"          return "BOOLEAN"
+"bytes"            return "BYTES"
+"hash"             return "HASH"
+"int"              return "INT"
+"string"           return "STRING"
+"uint"             return "UINT"
 
 
 // ID; this should be parsed last
@@ -85,8 +103,121 @@
 %%
 
 program
-  : statements EOF
-    { return { type: "program", statements: $1 }; }
+  : top_statements EOF
+    { {
+      const result = { type: "program", interfaces: [ ], functions: [ ], statements: [ ] };
+      const targets = { interface: result.interfaces, func: result.functions };
+      for (const stmt of $1) {
+        (targets[stmt.type] || result.statements).push(stmt);
+      }
+      return result;
+    } }
+  ;
+
+top_statements
+  : /* empty */
+    { $$ = [ ]; }
+  | top_statement top_statements
+    { $$ = [ $1, ...$2 ]; }
+  ;
+
+top_statement
+  : statement
+    { $$ = $1; }
+  | interface_solc
+    { $$ = $1; }
+  | func
+    { $$ = $1; }
+  ;
+
+interface_solc
+  : INTERFACE ID OPEN_BRACE methods_solc CLOSE_BRACE
+    { $$ = { type: "interface", id: $2, methods: $4 }; }
+  ;
+
+methods_solc
+  : /* empty */
+    { $$ = [ ]; }
+  | method_solc methods_solc 
+    { $$ = [ $1, ...$2 ]; }
+  ;
+
+method_solc
+  : ID OPEN_PAREN params_solc CLOSE_PAREN COLON type_solc SEMI
+    { $$ = { type: "method", id: $1, params: $3, returns: $6 }; }
+  | ID OPEN_PAREN CLOSE_PAREN COLON type_solc SEMI
+    { $$ = { type: "method", id: $1, params: [ ], returns: $5 }; }
+  ;
+
+params_solc
+  : param_solc
+    { $$ = [ $1 ]; }
+  | param_solc COMMA params_solc
+    { $$ = [ $1, ...$3 ]; }
+  ;
+
+param_solc 
+  : type_solc
+    ${ $$ = { type: $1 }; }
+  | ID COLON type_solc
+    ${ $$ = { id: $1, type: $3 }; }
+  ;
+
+// Solidity types overlap with Gremlin types, so this includes
+// the overlap and the Solidity-specific 
+type_solc
+  : ADDRESS
+    ${ $$ = $1; }
+  | BOOLEAN
+    ${ $$ = $1; }
+  | BYTES
+    ${ $$ = $1; }
+  | INT
+    ${ $$ = $1; }
+  | STRING
+    ${ $$ = $1; }
+  | UINT
+    ${ $$ = $1; }
+  | TYPE_SOLC
+    ${ $$ = $1; }
+  ;
+
+func
+  : FUNCTION ID OPEN_PAREN CLOSE_PAREN COLON type OPEN_BRACE statements CLOSE_BRACE
+    { $$ = { type: "func", id: $2, body: $8, returns: $6 }; }
+  | FUNCTION ID OPEN_PAREN params CLOSE_PAREN COLON type OPEN_BRACE statements CLOSE_BRACE
+    { $$ = { type: "func", id: $2, params: $4, body: $9, returns: $7 }; }
+  ;
+
+params
+  : param
+    ${ $$ = [ $1 ]; }
+  | param COMMA params
+    ${ $$ = [ $1, ...$3 ]; }
+  ;
+
+param
+  : ID
+    { $$ = { id: $1 }; }
+  | ID COLON type
+    { $$ = { id: $1, type: $3 }; }
+  ;
+
+type
+  : ADDRESS
+    { $$ = $1; }
+  | BOOLEAN
+    { $$ = $1; }  
+  | BYTES
+    { $$ = $1; }  
+  | HASH
+    { $$ = $1; }
+  | INT
+    { $$ = $1; }
+  | STRING
+    { $$ = $1; }
+  | UINT
+    { $$ = $1; }
   ;
 
 statements
@@ -136,6 +267,10 @@ statement
     { $$ = { type: "stmt-while", cond: $3, body: $6 }; }
   | statement_else
     { $$ = $1; }
+  | RETURN SEMI
+    { $$ = { type: "return" }; }
+  | RETURN expr SEMI
+    { $$ = { type: "return", value: $2 }; }
   ;
 
 primary_expr
@@ -166,7 +301,7 @@ unary_expr
   : primary_expr
     { $$ = $1; }
   | OPEN_TRIANGE TYPE CLOSE_TRIANGLE primary_expr
-    { $$ = { type: "cast", type: $2, expr: $4 }; }
+    { $$ = { type: "cast", cast: $2, expr: $4 }; }
   | unary_op primary_expr
     { $$ = { type: "unary", op: $1, expr: $2 }; }
   ;
